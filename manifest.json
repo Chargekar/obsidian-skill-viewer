@@ -3,7 +3,7 @@
   "name": "Skill Viewer",
   "version": "1.0.0",
   "minAppVersion": "1.4.0",
-  "description": "View and interact with .skill files (Claude/OpenClaw skill packages) as native Obsidian notes. Skills are zip archives containing SKILL.md and supporting files.",
+  "description": "Render .skill packages (AI agent skill files) as native Obsidian notes. Supports any agent using the .skill format: Claude Code, OpenClaw, NemoClaw, and others.",
   "author": "Harshwardhan Wadikar",
   "authorUrl": "https://github.com/Chargekar",
   "isDesktopOnly": false
