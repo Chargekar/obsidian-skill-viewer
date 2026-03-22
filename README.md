@@ -149,11 +149,15 @@ obsidian-skill-viewer/
 
 This plugin would not make sense without [Obsidian](https://obsidian.md).
 
-Obsidian understood something early that the rest of the industry is only beginning to grasp: that a local, portable, plain-text knowledge base is not a limitation — it is the feature. As AI systems grow more capable, the ability to store structured human intent in a format that is simultaneously readable by people, parseable by machines, version-controllable by git, and navigable by a graph engine becomes genuinely foundational.
+Obsidian understood something early that the rest of the industry is only beginning to grasp: that a local, portable, plain-text knowledge base is not a limitation — it is the feature. 
+
+As AI systems grow more capable, the ability to store structured human intent in a format that is simultaneously readable by people, parseable by machines, version-controllable by git, and navigable by a graph engine becomes genuinely foundational.
 
 Markdown is not a legacy format. It is at the very beginning of its utility. The same document that a developer reads in a code editor, a writer reads in Obsidian, an agent reads from disk, and a model reads from context — that convergence is what makes the `.skill` format possible, and what makes Obsidian the right place to work with it.
 
-Thank you to the Obsidian team for building infrastructure that keeps getting more relevant, not less.
+Thank you to the Obsidian team for building infrastructure that keeps getting more relevant.
+
+Kudos to the team!!!
 
 ---
 
