@@ -1,0 +1,288 @@
+/* ── Skill View ─────────────────────────────────────────────────────────────── */
+
+.skill-view-container {
+  padding: 1.5rem;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+/* Header card */
+.skill-header-card {
+  background: linear-gradient(135deg, var(--color-accent-1, #6c63ff22) 0%, var(--background-secondary) 100%);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.skill-header-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.skill-header-icon {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--interactive-accent);
+  border-radius: 8px;
+  color: var(--text-on-accent);
+}
+
+.skill-header-icon svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.skill-header-meta {
+  flex: 1;
+}
+
+.skill-name {
+  margin: 0 0 0.25rem;
+  font-size: 1.3rem;
+  line-height: 1.3;
+  color: var(--text-normal);
+}
+
+.skill-description {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Badges */
+.skill-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.skill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 20px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.skill-badge strong {
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+.skill-badge-path {
+  font-family: var(--font-monospace);
+  font-size: 0.73rem;
+}
+
+/* Files section */
+.skill-files-section {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1.25rem;
+  background: var(--background-secondary);
+}
+
+.skill-files-section > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.skill-files-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.skill-files-section[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
+/* File tree */
+.skill-file-tree {
+  list-style: none;
+  padding-left: 1.1rem;
+  margin: 0;
+}
+
+.skill-file-tree .skill-file-tree {
+  border-left: 1px dashed var(--background-modifier-border);
+  margin-left: 0.5rem;
+}
+
+.skill-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.1rem 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.skill-tree-dir > .skill-tree-row {
+  color: var(--text-normal);
+  font-weight: 500;
+}
+
+.skill-tree-icon {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.skill-tree-icon svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+/* SKILL.md content section */
+.skill-md-content {
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 1rem;
+}
+
+.skill-section-title {
+  margin-top: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Error / empty states */
+.skill-error {
+  color: var(--text-error);
+  padding: 1rem;
+  border: 1px solid var(--text-error);
+  border-radius: 8px;
+}
+
+.skill-no-content {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── Skill Explorer Sidebar ─────────────────────────────────────────────────── */
+
+.skill-explorer-container {
+  padding: 0.5rem;
+}
+
+.skill-explorer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.5rem 0.5rem;
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: 0.5rem;
+}
+
+.skill-explorer-header h4 {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.skill-explorer-refresh {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0.2rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.skill-explorer-refresh:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.skill-explorer-refresh svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.skill-explorer-empty {
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 0.85rem;
+  padding: 1.5rem 0.5rem;
+}
+
+.skill-explorer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.skill-explorer-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.skill-explorer-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+.skill-explorer-item-icon {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: var(--interactive-accent);
+}
+
+.skill-explorer-item-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.skill-explorer-item-text {
+  min-width: 0;
+}
+
+.skill-explorer-item-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skill-explorer-item-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}

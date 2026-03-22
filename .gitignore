@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build cache
+.esbuild/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Obsidian vault files (don't ship the vault itself)
+.obsidian/
+
+# Keep compiled output (required for Obsidian community plugin)
+!main.js
+!styles.css
+!manifest.json
