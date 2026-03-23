@@ -2812,42 +2812,55 @@ function renderTree(node, container) {
       renderTree(child, li);
   }
 }
-var SkillView = class extends import_obsidian.FileView {
+async function extractSkillMd(zip) {
+  const entry = Object.keys(zip.files).find(
+    (p) => p === "SKILL.md" || p.endsWith("/SKILL.md")
+  );
+  if (!entry)
+    return "";
+  const file = zip.file(entry);
+  return file ? file.async("string") : "";
+}
+var SkillView = class extends import_obsidian.ItemView {
   constructor() {
     super(...arguments);
-    this.skillData = null;
+    this.currentPath = "";
+    this.currentBasename = "";
   }
   getViewType() {
     return SKILL_VIEW_TYPE;
   }
   getDisplayText() {
-    var _a, _b;
-    return (_b = (_a = this.file) == null ? void 0 : _a.basename) != null ? _b : "Skill";
+    return this.currentBasename || "Skill";
   }
   getIcon() {
     return SKILL_ICON;
   }
-  /** Must return true so Obsidian calls onLoadFile for .skill files. */
-  canAcceptExtension(extension) {
-    return extension === "skill";
+  async onOpen() {
   }
-  /** Called by Obsidian when a file is loaded into this view. */
-  async onLoadFile(file) {
-    await this.renderSkill(file);
+  getState() {
+    return { file: this.currentPath };
   }
-  /** Re-render when the file changes on disk. */
-  async onUnloadFile(_file) {
-    this.contentEl.empty();
-    this.skillData = null;
+  async setState(state, result) {
+    var _a;
+    await super.setState(state, result);
+    if (state.file && typeof state.file === "string" && state.file) {
+      this.currentPath = state.file;
+      const name = (_a = state.file.split("/").pop()) != null ? _a : state.file;
+      this.currentBasename = name.replace(/\.skill$/i, "");
+      await this.renderSkill();
+    }
   }
-  async renderSkill(file) {
+  async renderSkill() {
     var _a, _b;
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("skill-view-container");
+    if (!this.currentPath)
+      return;
     let zip;
     try {
-      const arrayBuf = await this.app.vault.adapter.readBinary(file.path);
+      const arrayBuf = await this.app.vault.adapter.readBinary(this.currentPath);
       zip = await import_jszip.default.loadAsync(arrayBuf);
     } catch (e) {
       contentEl.createEl("p", {
@@ -2856,24 +2869,17 @@ var SkillView = class extends import_obsidian.FileView {
       });
       return;
     }
-    const skillMdPath = Object.keys(zip.files).find(
-      (p) => p === "SKILL.md" || p.endsWith("/SKILL.md")
-    );
-    const skillMdFile = skillMdPath ? zip.file(skillMdPath) : null;
-    let rawMd = "";
-    if (skillMdFile) {
-      rawMd = await skillMdFile.async("string");
-    }
+    const rawMd = await extractSkillMd(zip);
+    const hasMd = rawMd.length > 0;
     const frontmatter = parseFrontmatter(rawMd);
     const bodyMd = stripFrontmatter(rawMd);
     const allFiles = Object.keys(zip.files);
-    this.skillData = { frontmatter, bodyMd, files: allFiles };
     const header = contentEl.createDiv({ cls: "skill-header-card" });
     const headerTop = header.createDiv({ cls: "skill-header-top" });
     const iconWrap = headerTop.createDiv({ cls: "skill-header-icon" });
     (0, import_obsidian.setIcon)(iconWrap, SKILL_ICON);
     const meta = headerTop.createDiv({ cls: "skill-header-meta" });
-    const skillName = (_b = (_a = frontmatter["name"]) != null ? _a : frontmatter["title"]) != null ? _b : file.basename;
+    const skillName = (_b = (_a = frontmatter["name"]) != null ? _a : frontmatter["title"]) != null ? _b : this.currentBasename;
     meta.createEl("h2", { cls: "skill-name", text: skillName });
     if (frontmatter["description"]) {
       meta.createEl("p", {
@@ -2882,59 +2888,42 @@ var SkillView = class extends import_obsidian.FileView {
       });
     }
     const badges = header.createDiv({ cls: "skill-badges" });
-    const badgeFields = ["version", "author", "tags", "category"];
-    for (const field of badgeFields) {
+    for (const field of ["version", "author", "tags", "category"]) {
       if (frontmatter[field]) {
         const badge = badges.createEl("span", { cls: "skill-badge" });
         badge.createEl("strong", { text: field + ": " });
         badge.createSpan({ text: frontmatter[field] });
       }
     }
-    const pathBadge = badges.createEl("span", { cls: "skill-badge skill-badge-path" });
+    const pathBadge = badges.createEl("span", {
+      cls: "skill-badge skill-badge-path"
+    });
     pathBadge.createEl("strong", { text: "location: " });
-    pathBadge.createSpan({ text: file.path });
+    pathBadge.createSpan({ text: this.currentPath });
     const details = contentEl.createEl("details", { cls: "skill-files-section" });
     details.createEl("summary", {
       text: `Files in this skill (${allFiles.filter((f) => !zip.files[f].dir).length})`
     });
-    const tree = buildTree(allFiles);
-    renderTree(tree, details);
+    renderTree(buildTree(allFiles), details);
     if (bodyMd.trim()) {
       const mdSection = contentEl.createDiv({ cls: "skill-md-content" });
-      mdSection.createEl("h3", { cls: "skill-section-title", text: "Skill Instructions" });
+      mdSection.createEl("h3", {
+        cls: "skill-section-title",
+        text: "Skill Instructions"
+      });
       const { MarkdownRenderer } = await import("obsidian");
       await MarkdownRenderer.render(
         this.app,
         bodyMd,
         mdSection,
-        file.path,
+        this.currentPath,
         this
       );
-    } else if (!skillMdFile) {
+    } else if (!hasMd) {
       contentEl.createEl("p", {
         text: "No SKILL.md found inside this skill package.",
         cls: "skill-no-content"
       });
-    }
-  }
-  /** Save / restore state so re-opening the same file works. */
-  getState() {
-    var _a;
-    return { file: (_a = this.file) == null ? void 0 : _a.path };
-  }
-  async setState(state, result) {
-    var _a;
-    await super.setState(state, result);
-    if (!this.file && state.file && typeof state.file === "string") {
-      const path = state.file;
-      const adapter = this.app.vault.adapter;
-      try {
-        const buf = await adapter.readBinary(path);
-        const fakeName = (_a = path.split("/").pop()) != null ? _a : path;
-        const fakeFile = { path, name: fakeName, basename: fakeName.replace(/\.skill$/, ""), extension: "skill" };
-        await this.renderSkill(fakeFile);
-      } catch (e) {
-      }
     }
   }
 };
@@ -2956,7 +2945,7 @@ var SkillExplorerView = class extends import_obsidian.ItemView {
     await this.refresh();
   }
   async refresh() {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("skill-explorer-container");
@@ -2969,17 +2958,22 @@ var SkillExplorerView = class extends import_obsidian.ItemView {
       });
       (0, import_obsidian.setIcon)(refreshBtn, "refresh-cw");
       refreshBtn.addEventListener("click", () => this.refresh());
-      let skillFiles = this.app.vault.getFiles().filter((f) => f.extension === "skill");
-      if (skillFiles.length === 0) {
+      const skillPaths = [];
+      const indexed = this.app.vault.getFiles().filter((f) => f.extension === "skill").map((f) => f.path);
+      skillPaths.push(...indexed);
+      if (skillPaths.length === 0) {
         try {
-          const listed = await this.plugin.app.vault.adapter.list("/");
-          const skillPaths = listed.files.filter((p) => p.endsWith(".skill"));
-          skillFiles = skillPaths.map((p) => this.plugin.app.vault.getAbstractFileByPath(p)).filter((f) => f instanceof import_obsidian.TFile);
+          const listed = await this.app.vault.adapter.list("/");
+          listed.files.filter((p) => p.endsWith(".skill")).forEach((p) => skillPaths.push(p));
         } catch (e) {
         }
       }
-      skillFiles = skillFiles.sort((a, b) => a.basename.localeCompare(b.basename));
-      if (skillFiles.length === 0) {
+      skillPaths.sort((a, b) => {
+        const ba = a.split("/").pop().replace(/\.skill$/i, "");
+        const bb = b.split("/").pop().replace(/\.skill$/i, "");
+        return ba.localeCompare(bb);
+      });
+      if (skillPaths.length === 0) {
         contentEl.createEl("p", {
           text: "No .skill files found in this vault.",
           cls: "skill-explorer-empty"
@@ -2987,26 +2981,30 @@ var SkillExplorerView = class extends import_obsidian.ItemView {
         return;
       }
       const list = contentEl.createDiv({ cls: "skill-explorer-list" });
-      for (const file of skillFiles) {
+      for (const filePath of skillPaths) {
+        const fileName = (_a = filePath.split("/").pop()) != null ? _a : filePath;
+        const basename = fileName.replace(/\.skill$/i, "");
         const item = list.createDiv({ cls: "skill-explorer-item" });
-        let name = file.basename;
+        let displayName = basename;
         let desc = "";
         try {
-          const buf = await this.app.vault.readBinary(file);
+          const buf = await this.app.vault.adapter.readBinary(filePath);
           const zip = await import_jszip.default.loadAsync(buf);
-          const mdFile = zip.file("SKILL.md");
-          if (mdFile) {
-            const md = await mdFile.async("string");
+          const md = await extractSkillMd(zip);
+          if (md) {
             const fm = parseFrontmatter(md);
-            name = (_b = (_a = fm["name"]) != null ? _a : fm["title"]) != null ? _b : file.basename;
-            desc = (_d = (_c = fm["description"]) != null ? _c : stripFrontmatter(md).split("\n").find((l) => l.trim())) != null ? _d : "";
+            displayName = (_c = (_b = fm["name"]) != null ? _b : fm["title"]) != null ? _c : basename;
+            desc = (_e = (_d = fm["description"]) != null ? _d : stripFrontmatter(md).split("\n").find((l) => l.trim())) != null ? _e : "";
           }
         } catch (e) {
         }
         const iconEl = item.createDiv({ cls: "skill-explorer-item-icon" });
         (0, import_obsidian.setIcon)(iconEl, SKILL_ICON);
         const textEl = item.createDiv({ cls: "skill-explorer-item-text" });
-        textEl.createEl("div", { cls: "skill-explorer-item-name", text: name });
+        textEl.createEl("div", {
+          cls: "skill-explorer-item-name",
+          text: displayName
+        });
         if (desc) {
           textEl.createEl("div", {
             cls: "skill-explorer-item-desc",
@@ -3014,18 +3012,12 @@ var SkillExplorerView = class extends import_obsidian.ItemView {
           });
         }
         item.addEventListener("click", () => {
-          this.plugin.openSkillFile(file);
+          this.plugin.openSkillPath(filePath);
         });
         item.addEventListener("contextmenu", (evt) => {
           const menu = new import_obsidian.Menu();
           menu.addItem(
-            (i) => i.setTitle("Open in new tab").setIcon("file-plus").onClick(() => this.plugin.openSkillFile(file, true))
-          );
-          menu.addItem(
-            (i) => i.setTitle("Reveal in file explorer").setIcon("folder-open").onClick(() => {
-              var _a2, _b2, _c2;
-              (_c2 = (_b2 = (_a2 = this.app.internalPlugins) == null ? void 0 : _a2.getPluginById("file-explorer")) == null ? void 0 : _b2.instance) == null ? void 0 : _c2.revealInFolder(file);
-            })
+            (i) => i.setTitle("Open in new tab").setIcon("file-plus").onClick(() => this.plugin.openSkillPath(filePath, true))
           );
           menu.showAtMouseEvent(evt);
         });
@@ -3047,14 +3039,6 @@ var SkillViewerSettingTab = class extends import_obsidian.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "Skill Viewer Settings" });
-    new import_obsidian.Setting(containerEl).setName("Show skill files in file explorer").setDesc(
-      "When enabled, .skill files appear in Obsidian's built-in file explorer."
-    ).addToggle(
-      (toggle) => toggle.setValue(this.plugin.settings.showInFileExplorer).onChange(async (value) => {
-        this.plugin.settings.showInFileExplorer = value;
-        await this.plugin.saveSettings();
-      })
-    );
     new import_obsidian.Setting(containerEl).setName("Default open mode").setDesc("How to open a skill file when clicked.").addDropdown(
       (drop) => drop.addOption("tab", "New tab").addOption("split", "Split pane").setValue(this.plugin.settings.defaultOpenMode).onChange(async (value) => {
         this.plugin.settings.defaultOpenMode = value;
@@ -3071,10 +3055,7 @@ var SkillViewerPlugin = class extends import_obsidian.Plugin {
   async onload() {
     console.log("Skill Viewer plugin loading\u2026");
     await this.loadSettings();
-    (0, import_obsidian.addIcon)(
-      "skill-file",
-      SKILL_FILE_ICON
-    );
+    (0, import_obsidian.addIcon)("skill-file", SKILL_FILE_ICON);
     this.registerExtensions(["skill"], SKILL_VIEW_TYPE);
     this.registerView(SKILL_VIEW_TYPE, (leaf) => new SkillView(leaf));
     this.registerView(
@@ -3122,8 +3103,8 @@ var SkillViewerPlugin = class extends import_obsidian.Plugin {
       this.app.workspace.revealLeaf(leaf);
     }
   }
-  /** Open a .skill file in the main workspace. */
-  async openSkillFile(file, forceNewTab = false) {
+  /** Open a .skill file by path in the main workspace. */
+  async openSkillPath(filePath, forceNewTab = false) {
     const mode = forceNewTab ? "tab" : this.settings.defaultOpenMode;
     let leaf = null;
     if (mode === "split") {
@@ -3131,8 +3112,18 @@ var SkillViewerPlugin = class extends import_obsidian.Plugin {
     } else {
       leaf = this.app.workspace.getLeaf(mode === "tab" ? "tab" : false);
     }
-    if (leaf)
-      await leaf.openFile(file);
+    if (leaf) {
+      await leaf.setViewState({
+        type: SKILL_VIEW_TYPE,
+        state: { file: filePath },
+        active: true
+      });
+      this.app.workspace.revealLeaf(leaf);
+    }
+  }
+  /** Convenience wrapper for callers that have a TFile. */
+  async openSkillFile(file, forceNewTab = false) {
+    await this.openSkillPath(file.path, forceNewTab);
   }
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());

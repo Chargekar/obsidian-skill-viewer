@@ -1,17 +1,14 @@
 import {
   App,
-  FileView,
   ItemView,
   Menu,
   Plugin,
   PluginSettingTab,
   Setting,
-  TAbstractFile,
   TFile,
   ViewStateResult,
   WorkspaceLeaf,
   addIcon,
-  normalizePath,
   setIcon,
 } from "obsidian";
 import JSZip from "jszip";
@@ -115,53 +112,67 @@ function renderTree(node: TreeNode, container: HTMLElement) {
   }
 }
 
-// ─── SkillView ─────────────────────────────────────────────────────────────────
+/** Find SKILL.md anywhere inside a zip (may be in a named subfolder). */
+async function extractSkillMd(zip: JSZip): Promise<string> {
+  const entry = Object.keys(zip.files).find(
+    (p) => p === "SKILL.md" || p.endsWith("/SKILL.md")
+  );
+  if (!entry) return "";
+  const file = zip.file(entry);
+  return file ? file.async("string") : "";
+}
 
-export class SkillView extends FileView {
-  private skillData: {
-    frontmatter: Record<string, string>;
-    bodyMd: string;
-    files: string[];
-  } | null = null;
+// ─── SkillView ─────────────────────────────────────────────────────────────────
+//
+// Uses ItemView (not FileView) so Obsidian's file-indexing machinery is never
+// involved. All file reading goes through vault.adapter.readBinary, which works
+// for any path regardless of whether Obsidian has indexed it.
+
+export class SkillView extends ItemView {
+  private currentPath = "";
+  private currentBasename = "";
 
   getViewType(): string {
     return SKILL_VIEW_TYPE;
   }
 
   getDisplayText(): string {
-    return this.file?.basename ?? "Skill";
+    return this.currentBasename || "Skill";
   }
 
   getIcon(): string {
     return SKILL_ICON;
   }
 
-  /** Must return true so Obsidian calls onLoadFile for .skill files. */
-  canAcceptExtension(extension: string): boolean {
-    return extension === "skill";
+  async onOpen(): Promise<void> {
+    // Nothing to do — rendering is driven by setState.
   }
 
-  /** Called by Obsidian when a file is loaded into this view. */
-  async onLoadFile(file: TFile): Promise<void> {
-    await this.renderSkill(file);
+  getState(): Record<string, unknown> {
+    return { file: this.currentPath };
   }
 
-  /** Re-render when the file changes on disk. */
-  async onUnloadFile(_file: TFile): Promise<void> {
-    this.contentEl.empty();
-    this.skillData = null;
+  async setState(state: Record<string, unknown>, result: ViewStateResult): Promise<void> {
+    await super.setState(state, result);
+    if (state.file && typeof state.file === "string" && state.file) {
+      this.currentPath = state.file;
+      const name = state.file.split("/").pop() ?? state.file;
+      this.currentBasename = name.replace(/\.skill$/i, "");
+      await this.renderSkill();
+    }
   }
 
-  private async renderSkill(file: TFile) {
+  private async renderSkill(): Promise<void> {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("skill-view-container");
 
+    if (!this.currentPath) return;
+
     // ── Read & unzip ──────────────────────────────────────────────────────────
-    // Use adapter.readBinary so unindexed files (not in vault cache) still load.
     let zip: JSZip;
     try {
-      const arrayBuf = await this.app.vault.adapter.readBinary(file.path);
+      const arrayBuf = await this.app.vault.adapter.readBinary(this.currentPath);
       zip = await JSZip.loadAsync(arrayBuf);
     } catch (e) {
       contentEl.createEl("p", {
@@ -172,21 +183,11 @@ export class SkillView extends FileView {
     }
 
     // ── Extract SKILL.md ──────────────────────────────────────────────────────
-    // SKILL.md may be nested inside a folder within the zip, not at the root.
-    const skillMdPath = Object.keys(zip.files).find(
-      (p) => p === "SKILL.md" || p.endsWith("/SKILL.md")
-    );
-    const skillMdFile = skillMdPath ? zip.file(skillMdPath) : null;
-    let rawMd = "";
-    if (skillMdFile) {
-      rawMd = await skillMdFile.async("string");
-    }
-
+    const rawMd = await extractSkillMd(zip);
+    const hasMd = rawMd.length > 0;
     const frontmatter = parseFrontmatter(rawMd);
     const bodyMd = stripFrontmatter(rawMd);
     const allFiles = Object.keys(zip.files);
-
-    this.skillData = { frontmatter, bodyMd, files: allFiles };
 
     // ── Header card ───────────────────────────────────────────────────────────
     const header = contentEl.createDiv({ cls: "skill-header-card" });
@@ -197,7 +198,7 @@ export class SkillView extends FileView {
 
     const meta = headerTop.createDiv({ cls: "skill-header-meta" });
     const skillName =
-      frontmatter["name"] ?? frontmatter["title"] ?? file.basename;
+      frontmatter["name"] ?? frontmatter["title"] ?? this.currentBasename;
     meta.createEl("h2", { cls: "skill-name", text: skillName });
 
     if (frontmatter["description"]) {
@@ -209,69 +210,46 @@ export class SkillView extends FileView {
 
     // Badges row
     const badges = header.createDiv({ cls: "skill-badges" });
-    const badgeFields = ["version", "author", "tags", "category"];
-    for (const field of badgeFields) {
+    for (const field of ["version", "author", "tags", "category"]) {
       if (frontmatter[field]) {
         const badge = badges.createEl("span", { cls: "skill-badge" });
         badge.createEl("strong", { text: field + ": " });
         badge.createSpan({ text: frontmatter[field] });
       }
     }
-
-    // File path badge
-    const pathBadge = badges.createEl("span", { cls: "skill-badge skill-badge-path" });
+    const pathBadge = badges.createEl("span", {
+      cls: "skill-badge skill-badge-path",
+    });
     pathBadge.createEl("strong", { text: "location: " });
-    pathBadge.createSpan({ text: file.path });
+    pathBadge.createSpan({ text: this.currentPath });
 
     // ── Files in this skill (collapsible) ─────────────────────────────────────
     const details = contentEl.createEl("details", { cls: "skill-files-section" });
     details.createEl("summary", {
       text: `Files in this skill (${allFiles.filter((f) => !zip.files[f].dir).length})`,
     });
-    const tree = buildTree(allFiles);
-    renderTree(tree, details);
+    renderTree(buildTree(allFiles), details);
 
     // ── SKILL.md content ──────────────────────────────────────────────────────
     if (bodyMd.trim()) {
       const mdSection = contentEl.createDiv({ cls: "skill-md-content" });
-      mdSection.createEl("h3", { cls: "skill-section-title", text: "Skill Instructions" });
-      // Use Obsidian's built-in markdown renderer
+      mdSection.createEl("h3", {
+        cls: "skill-section-title",
+        text: "Skill Instructions",
+      });
       const { MarkdownRenderer } = await import("obsidian");
       await MarkdownRenderer.render(
         this.app,
         bodyMd,
         mdSection,
-        file.path,
+        this.currentPath,
         this
       );
-    } else if (!skillMdFile) {
+    } else if (!hasMd) {
       contentEl.createEl("p", {
         text: "No SKILL.md found inside this skill package.",
         cls: "skill-no-content",
       });
-    }
-  }
-
-  /** Save / restore state so re-opening the same file works. */
-  getState(): Record<string, unknown> {
-    return { file: this.file?.path };
-  }
-
-  async setState(state: Record<string, unknown>, result: ViewStateResult): Promise<void> {
-    await super.setState(state, result);
-    // If the base class couldn't resolve the file (not in vault index), render directly.
-    if (!this.file && state.file && typeof state.file === "string") {
-      const path = state.file as string;
-      // Synthesise a minimal TFile-like object so renderSkill can proceed.
-      const adapter = this.app.vault.adapter;
-      try {
-        const buf = await adapter.readBinary(path);
-        const fakeName = path.split("/").pop() ?? path;
-        const fakeFile = { path, name: fakeName, basename: fakeName.replace(/\.skill$/, ""), extension: "skill" } as unknown as TFile;
-        await this.renderSkill(fakeFile);
-      } catch {
-        // silently ignore — view stays blank rather than crashing
-      }
     }
   }
 }
@@ -318,25 +296,35 @@ export class SkillExplorerView extends ItemView {
       setIcon(refreshBtn, "refresh-cw");
       refreshBtn.addEventListener("click", () => this.refresh());
 
-      // Collect all .skill files — vault.getFiles() skips non-indexed extensions,
-      // so fall back to vault.adapter.list() when it returns nothing.
-      let skillFiles = this.app.vault
+      // Collect all .skill file paths.
+      // vault.getFiles() skips non-indexed extensions, so fall back to
+      // vault.adapter.list() and collect paths directly.
+      const skillPaths: string[] = [];
+
+      const indexed = this.app.vault
         .getFiles()
-        .filter((f) => f.extension === "skill");
-      if (skillFiles.length === 0) {
+        .filter((f) => f.extension === "skill")
+        .map((f) => f.path);
+      skillPaths.push(...indexed);
+
+      if (skillPaths.length === 0) {
         try {
-          const listed = await this.plugin.app.vault.adapter.list("/");
-          const skillPaths = listed.files.filter((p) => p.endsWith(".skill"));
-          skillFiles = skillPaths
-            .map((p) => this.plugin.app.vault.getAbstractFileByPath(p))
-            .filter((f): f is TFile => f instanceof TFile);
-        } catch (e) {
-          // fallback failed, skillFiles stays empty
+          const listed = await this.app.vault.adapter.list("/");
+          listed.files
+            .filter((p) => p.endsWith(".skill"))
+            .forEach((p) => skillPaths.push(p));
+        } catch {
+          // adapter.list failed — skillPaths stays empty
         }
       }
-      skillFiles = skillFiles.sort((a, b) => a.basename.localeCompare(b.basename));
 
-      if (skillFiles.length === 0) {
+      skillPaths.sort((a, b) => {
+        const ba = a.split("/").pop()!.replace(/\.skill$/i, "");
+        const bb = b.split("/").pop()!.replace(/\.skill$/i, "");
+        return ba.localeCompare(bb);
+      });
+
+      if (skillPaths.length === 0) {
         contentEl.createEl("p", {
           text: "No .skill files found in this vault.",
           cls: "skill-explorer-empty",
@@ -346,34 +334,40 @@ export class SkillExplorerView extends ItemView {
 
       const list = contentEl.createDiv({ cls: "skill-explorer-list" });
 
-      for (const file of skillFiles) {
+      for (const filePath of skillPaths) {
+        const fileName = filePath.split("/").pop() ?? filePath;
+        const basename = fileName.replace(/\.skill$/i, "");
         const item = list.createDiv({ cls: "skill-explorer-item" });
 
-        // Try to read metadata without fully parsing the zip (best-effort)
-        let name = file.basename;
+        // Try to read name/description from SKILL.md (best-effort)
+        let displayName = basename;
         let desc = "";
         try {
-          const buf = await this.app.vault.readBinary(file);
+          const buf = await this.app.vault.adapter.readBinary(filePath);
           const zip = await JSZip.loadAsync(buf);
-          const mdFile = zip.file("SKILL.md");
-          if (mdFile) {
-            const md = await mdFile.async("string");
+          const md = await extractSkillMd(zip);
+          if (md) {
             const fm = parseFrontmatter(md);
-            name = fm["name"] ?? fm["title"] ?? file.basename;
+            displayName = fm["name"] ?? fm["title"] ?? basename;
             desc =
               fm["description"] ??
-              stripFrontmatter(md).split("\n").find((l) => l.trim()) ??
+              stripFrontmatter(md)
+                .split("\n")
+                .find((l) => l.trim()) ??
               "";
           }
         } catch {
-          // silently fall back to filename
+          // fall back to filename
         }
 
         const iconEl = item.createDiv({ cls: "skill-explorer-item-icon" });
         setIcon(iconEl, SKILL_ICON);
 
         const textEl = item.createDiv({ cls: "skill-explorer-item-text" });
-        textEl.createEl("div", { cls: "skill-explorer-item-name", text: name });
+        textEl.createEl("div", {
+          cls: "skill-explorer-item-name",
+          text: displayName,
+        });
         if (desc) {
           textEl.createEl("div", {
             cls: "skill-explorer-item-desc",
@@ -382,7 +376,7 @@ export class SkillExplorerView extends ItemView {
         }
 
         item.addEventListener("click", () => {
-          this.plugin.openSkillFile(file);
+          this.plugin.openSkillPath(filePath);
         });
 
         // Right-click context menu
@@ -392,18 +386,7 @@ export class SkillExplorerView extends ItemView {
             i
               .setTitle("Open in new tab")
               .setIcon("file-plus")
-              .onClick(() => this.plugin.openSkillFile(file, true))
-          );
-          menu.addItem((i) =>
-            i
-              .setTitle("Reveal in file explorer")
-              .setIcon("folder-open")
-              .onClick(() => {
-                // @ts-ignore – internal API
-                this.app.internalPlugins
-                  ?.getPluginById("file-explorer")
-                  ?.instance?.revealInFolder(file);
-              })
+              .onClick(() => this.plugin.openSkillPath(filePath, true))
           );
           menu.showAtMouseEvent(evt);
         });
@@ -433,20 +416,6 @@ class SkillViewerSettingTab extends PluginSettingTab {
     containerEl.createEl("h2", { text: "Skill Viewer Settings" });
 
     new Setting(containerEl)
-      .setName("Show skill files in file explorer")
-      .setDesc(
-        "When enabled, .skill files appear in Obsidian's built-in file explorer."
-      )
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.showInFileExplorer)
-          .onChange(async (value) => {
-            this.plugin.settings.showInFileExplorer = value;
-            await this.plugin.saveSettings();
-          })
-      );
-
-    new Setting(containerEl)
       .setName("Default open mode")
       .setDesc("How to open a skill file when clicked.")
       .addDropdown((drop) =>
@@ -455,7 +424,10 @@ class SkillViewerSettingTab extends PluginSettingTab {
           .addOption("split", "Split pane")
           .setValue(this.plugin.settings.defaultOpenMode)
           .onChange(async (value: string) => {
-            this.plugin.settings.defaultOpenMode = value as "tab" | "split" | "window";
+            this.plugin.settings.defaultOpenMode = value as
+              | "tab"
+              | "split"
+              | "window";
             await this.plugin.saveSettings();
           })
       );
@@ -472,16 +444,13 @@ export default class SkillViewerPlugin extends Plugin {
 
     await this.loadSettings();
 
-    // Register custom icon
-    addIcon(
-      "skill-file",
-      SKILL_FILE_ICON
-    );
+    addIcon("skill-file", SKILL_FILE_ICON);
 
-    // Register .skill as a recognised extension
+    // Register .skill as a recognised extension so clicking in the native
+    // file explorer opens our view.
     this.registerExtensions(["skill"], SKILL_VIEW_TYPE);
 
-    // Register the skill file view
+    // Register the skill file view (ItemView-based)
     this.registerView(SKILL_VIEW_TYPE, (leaf) => new SkillView(leaf));
 
     // Register the sidebar explorer view
@@ -522,7 +491,6 @@ export default class SkillViewerPlugin extends Plugin {
   }
 
   onunload() {
-    // Obsidian handles view cleanup automatically
     console.log("Skill Viewer plugin unloaded.");
   }
 
@@ -542,8 +510,8 @@ export default class SkillViewerPlugin extends Plugin {
     }
   }
 
-  /** Open a .skill file in the main workspace. */
-  async openSkillFile(file: TFile, forceNewTab = false) {
+  /** Open a .skill file by path in the main workspace. */
+  async openSkillPath(filePath: string, forceNewTab = false) {
     const mode = forceNewTab ? "tab" : this.settings.defaultOpenMode;
     let leaf: WorkspaceLeaf | null = null;
     if (mode === "split") {
@@ -551,7 +519,19 @@ export default class SkillViewerPlugin extends Plugin {
     } else {
       leaf = this.app.workspace.getLeaf(mode === "tab" ? "tab" : false);
     }
-    if (leaf) await leaf.openFile(file);
+    if (leaf) {
+      await leaf.setViewState({
+        type: SKILL_VIEW_TYPE,
+        state: { file: filePath },
+        active: true,
+      });
+      this.app.workspace.revealLeaf(leaf);
+    }
+  }
+
+  /** Convenience wrapper for callers that have a TFile. */
+  async openSkillFile(file: TFile, forceNewTab = false) {
+    await this.openSkillPath(file.path, forceNewTab);
   }
 
   async loadSettings() {
