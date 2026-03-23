@@ -277,16 +277,18 @@ export class SkillView extends ItemView {
     details.createEl("summary", {
       text: `Files in this skill (${allFiles.filter((f) => !zip.files[f].dir).length})`,
     });
-    renderTree(buildTree(allFiles), details, async (zipPath) => {
-      const entry = zip.file(zipPath);
-      if (!entry) return;
-      const text = await entry.async("string");
-      new SkillFileModal(
-        this.app,
-        zipPath.split("/").pop() ?? zipPath,
-        text,
-        this.currentPath
-      ).open();
+    renderTree(buildTree(allFiles), details, (zipPath) => {
+      void (async () => {
+        const entry = zip.file(zipPath);
+        if (!entry) return;
+        const text = await entry.async("string");
+        new SkillFileModal(
+          this.app,
+          zipPath.split("/").pop() ?? zipPath,
+          text,
+          this.currentPath
+        ).open();
+      })();
     });
 
     // ── SKILL.md content ──────────────────────────────────────────────────────
@@ -294,7 +296,7 @@ export class SkillView extends ItemView {
       const mdSection = contentEl.createDiv({ cls: "skill-md-content" });
       mdSection.createEl("h3", {
         cls: "skill-section-title",
-        text: "Skill Instructions",
+        text: "Skill instructions",
       });
       await MarkdownRenderer.render(
         this.app,
@@ -327,7 +329,7 @@ export class SkillExplorerView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Skill Explorer";
+    return "Skill explorer";
   }
 
   getIcon(): string {
@@ -345,14 +347,14 @@ export class SkillExplorerView extends ItemView {
 
     try {
       const header = contentEl.createDiv({ cls: "skill-explorer-header" });
-      header.createEl("h4", { text: "Skill Explorer" });
+      header.createEl("h4", { text: "Skill explorer" });
 
       const refreshBtn = header.createEl("button", {
         cls: "skill-explorer-refresh",
         title: "Reload skills",
       });
       setIcon(refreshBtn, "refresh-cw");
-      refreshBtn.addEventListener("click", () => this.refresh());
+      refreshBtn.addEventListener("click", () => { void this.refresh(); });
 
       // Collect all .skill file paths.
       // vault.getFiles() skips non-indexed extensions, so fall back to
@@ -434,7 +436,7 @@ export class SkillExplorerView extends ItemView {
         }
 
         item.addEventListener("click", () => {
-          this.plugin.openSkillPath(filePath);
+          void this.plugin.openSkillPath(filePath);
         });
 
         // Right-click context menu
@@ -444,7 +446,7 @@ export class SkillExplorerView extends ItemView {
             i
               .setTitle("Open in new tab")
               .setIcon("file-plus")
-              .onClick(() => this.plugin.openSkillPath(filePath, true))
+              .onClick(() => { void this.plugin.openSkillPath(filePath, true); })
           );
           menu.showAtMouseEvent(evt);
         });
@@ -471,7 +473,7 @@ class SkillViewerSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "Skill Viewer Settings" });
+    new Setting(containerEl).setName("Skill viewer settings").setHeading();
 
     new Setting(containerEl)
       .setName("Default open mode")
@@ -498,7 +500,7 @@ export default class SkillViewerPlugin extends Plugin {
   settings: SkillViewerSettings = DEFAULT_SETTINGS;
 
   async onload() {
-    console.log("Skill Viewer plugin loading…");
+    console.debug("Skill Viewer plugin loading…");
 
     await this.loadSettings();
 
@@ -518,26 +520,26 @@ export default class SkillViewerPlugin extends Plugin {
     );
 
     // Ribbon icon → open Skill Explorer
-    this.addRibbonIcon(SKILL_ICON, "Open Skill Explorer", () => {
-      this.activateSkillExplorer();
+    this.addRibbonIcon(SKILL_ICON, "Open skill explorer", () => {
+      void this.activateSkillExplorer();
     });
 
     // Commands
     this.addCommand({
       id: "open-skill-explorer",
-      name: "Open Skill Explorer",
-      callback: () => this.activateSkillExplorer(),
+      name: "Open skill explorer",
+      callback: () => { void this.activateSkillExplorer(); },
     });
 
     this.addCommand({
       id: "reload-skills",
-      name: "Reload Skills",
+      name: "Reload skills",
       callback: () => {
         const leaf = this.app.workspace.getLeavesOfType(
           SKILL_EXPLORER_VIEW_TYPE
         )[0];
         if (leaf?.view instanceof SkillExplorerView) {
-          leaf.view.refresh();
+          void leaf.view.refresh();
         }
       },
     });
@@ -545,11 +547,11 @@ export default class SkillViewerPlugin extends Plugin {
     // Settings tab
     this.addSettingTab(new SkillViewerSettingTab(this.app, this));
 
-    console.log("Skill Viewer plugin loaded.");
+    console.debug("Skill Viewer plugin loaded.");
   }
 
   onunload() {
-    console.log("Skill Viewer plugin unloaded.");
+    console.debug("Skill Viewer plugin unloaded.");
   }
 
   /** Open or reveal the Skill Explorer sidebar. */

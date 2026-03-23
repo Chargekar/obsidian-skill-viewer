@@ -29,9 +29,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// node_modules/jszip/dist/jszip.min.js
+// ../../../node_modules/jszip/dist/jszip.min.js
 var require_jszip_min = __commonJS({
-  "node_modules/jszip/dist/jszip.min.js"(exports, module2) {
+  "../../../node_modules/jszip/dist/jszip.min.js"(exports, module2) {
     !function(e) {
       if ("object" == typeof exports && "undefined" != typeof module2)
         module2.exports = e();
@@ -2935,24 +2935,26 @@ var SkillView = class extends import_obsidian.ItemView {
     details.createEl("summary", {
       text: `Files in this skill (${allFiles.filter((f) => !zip.files[f].dir).length})`
     });
-    renderTree(buildTree(allFiles), details, async (zipPath) => {
-      var _a2;
-      const entry = zip.file(zipPath);
-      if (!entry)
-        return;
-      const text = await entry.async("string");
-      new SkillFileModal(
-        this.app,
-        (_a2 = zipPath.split("/").pop()) != null ? _a2 : zipPath,
-        text,
-        this.currentPath
-      ).open();
+    renderTree(buildTree(allFiles), details, (zipPath) => {
+      void (async () => {
+        var _a2;
+        const entry = zip.file(zipPath);
+        if (!entry)
+          return;
+        const text = await entry.async("string");
+        new SkillFileModal(
+          this.app,
+          (_a2 = zipPath.split("/").pop()) != null ? _a2 : zipPath,
+          text,
+          this.currentPath
+        ).open();
+      })();
     });
     if (bodyMd.trim()) {
       const mdSection = contentEl.createDiv({ cls: "skill-md-content" });
       mdSection.createEl("h3", {
         cls: "skill-section-title",
-        text: "Skill Instructions"
+        text: "Skill instructions"
       });
       await import_obsidian.MarkdownRenderer.render(
         this.app,
@@ -2978,7 +2980,7 @@ var SkillExplorerView = class extends import_obsidian.ItemView {
     return SKILL_EXPLORER_VIEW_TYPE;
   }
   getDisplayText() {
-    return "Skill Explorer";
+    return "Skill explorer";
   }
   getIcon() {
     return SKILL_ICON;
@@ -2993,13 +2995,15 @@ var SkillExplorerView = class extends import_obsidian.ItemView {
     contentEl.addClass("skill-explorer-container");
     try {
       const header = contentEl.createDiv({ cls: "skill-explorer-header" });
-      header.createEl("h4", { text: "Skill Explorer" });
+      header.createEl("h4", { text: "Skill explorer" });
       const refreshBtn = header.createEl("button", {
         cls: "skill-explorer-refresh",
         title: "Reload skills"
       });
       (0, import_obsidian.setIcon)(refreshBtn, "refresh-cw");
-      refreshBtn.addEventListener("click", () => this.refresh());
+      refreshBtn.addEventListener("click", () => {
+        void this.refresh();
+      });
       const skillPaths = [];
       const indexed = this.app.vault.getFiles().filter((f) => f.extension === "skill").map((f) => f.path);
       skillPaths.push(...indexed);
@@ -3054,12 +3058,14 @@ var SkillExplorerView = class extends import_obsidian.ItemView {
           });
         }
         item.addEventListener("click", () => {
-          this.plugin.openSkillPath(filePath);
+          void this.plugin.openSkillPath(filePath);
         });
         item.addEventListener("contextmenu", (evt) => {
           const menu = new import_obsidian.Menu();
           menu.addItem(
-            (i) => i.setTitle("Open in new tab").setIcon("file-plus").onClick(() => this.plugin.openSkillPath(filePath, true))
+            (i) => i.setTitle("Open in new tab").setIcon("file-plus").onClick(() => {
+              void this.plugin.openSkillPath(filePath, true);
+            })
           );
           menu.showAtMouseEvent(evt);
         });
@@ -3080,7 +3086,7 @@ var SkillViewerSettingTab = class extends import_obsidian.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "Skill Viewer Settings" });
+    new import_obsidian.Setting(containerEl).setName("Skill viewer settings").setHeading();
     new import_obsidian.Setting(containerEl).setName("Default open mode").setDesc("How to open a skill file when clicked.").addDropdown(
       (drop) => drop.addOption("tab", "New tab").addOption("split", "Split pane").setValue(this.plugin.settings.defaultOpenMode).onChange(async (value) => {
         this.plugin.settings.defaultOpenMode = value;
@@ -3095,7 +3101,7 @@ var SkillViewerPlugin = class extends import_obsidian.Plugin {
     this.settings = DEFAULT_SETTINGS;
   }
   async onload() {
-    console.log("Skill Viewer plugin loading\u2026");
+    console.debug("Skill Viewer plugin loading\u2026");
     await this.loadSettings();
     (0, import_obsidian.addIcon)("skill-file", SKILL_FILE_ICON);
     this.registerExtensions(["skill"], SKILL_VIEW_TYPE);
@@ -3104,31 +3110,33 @@ var SkillViewerPlugin = class extends import_obsidian.Plugin {
       SKILL_EXPLORER_VIEW_TYPE,
       (leaf) => new SkillExplorerView(leaf, this)
     );
-    this.addRibbonIcon(SKILL_ICON, "Open Skill Explorer", () => {
-      this.activateSkillExplorer();
+    this.addRibbonIcon(SKILL_ICON, "Open skill explorer", () => {
+      void this.activateSkillExplorer();
     });
     this.addCommand({
       id: "open-skill-explorer",
-      name: "Open Skill Explorer",
-      callback: () => this.activateSkillExplorer()
+      name: "Open skill explorer",
+      callback: () => {
+        void this.activateSkillExplorer();
+      }
     });
     this.addCommand({
       id: "reload-skills",
-      name: "Reload Skills",
+      name: "Reload skills",
       callback: () => {
         const leaf = this.app.workspace.getLeavesOfType(
           SKILL_EXPLORER_VIEW_TYPE
         )[0];
         if ((leaf == null ? void 0 : leaf.view) instanceof SkillExplorerView) {
-          leaf.view.refresh();
+          void leaf.view.refresh();
         }
       }
     });
     this.addSettingTab(new SkillViewerSettingTab(this.app, this));
-    console.log("Skill Viewer plugin loaded.");
+    console.debug("Skill Viewer plugin loaded.");
   }
   onunload() {
-    console.log("Skill Viewer plugin unloaded.");
+    console.debug("Skill Viewer plugin unloaded.");
   }
   /** Open or reveal the Skill Explorer sidebar. */
   async activateSkillExplorer() {
