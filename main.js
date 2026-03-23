@@ -2946,64 +2946,80 @@ var SkillExplorerView = class extends import_obsidian.ItemView {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("skill-explorer-container");
-    const header = contentEl.createDiv({ cls: "skill-explorer-header" });
-    header.createEl("h4", { text: "Skill Explorer" });
-    const refreshBtn = header.createEl("button", {
-      cls: "skill-explorer-refresh",
-      title: "Reload skills"
-    });
-    (0, import_obsidian.setIcon)(refreshBtn, "refresh-cw");
-    refreshBtn.addEventListener("click", () => this.refresh());
-    const skillFiles = this.app.vault.getFiles().filter((f) => f.extension === "skill").sort((a, b) => a.basename.localeCompare(b.basename));
-    if (skillFiles.length === 0) {
-      contentEl.createEl("p", {
-        text: "No .skill files found in this vault.",
-        cls: "skill-explorer-empty"
+    try {
+      const header = contentEl.createDiv({ cls: "skill-explorer-header" });
+      header.createEl("h4", { text: "Skill Explorer" });
+      const refreshBtn = header.createEl("button", {
+        cls: "skill-explorer-refresh",
+        title: "Reload skills"
       });
-      return;
-    }
-    const list = contentEl.createDiv({ cls: "skill-explorer-list" });
-    for (const file of skillFiles) {
-      const item = list.createDiv({ cls: "skill-explorer-item" });
-      let name = file.basename;
-      let desc = "";
-      try {
-        const buf = await this.app.vault.readBinary(file);
-        const zip = await import_jszip.default.loadAsync(buf);
-        const mdFile = zip.file("SKILL.md");
-        if (mdFile) {
-          const md = await mdFile.async("string");
-          const fm = parseFrontmatter(md);
-          name = (_b = (_a = fm["name"]) != null ? _a : fm["title"]) != null ? _b : file.basename;
-          desc = (_d = (_c = fm["description"]) != null ? _c : stripFrontmatter(md).split("\n").find((l) => l.trim())) != null ? _d : "";
+      (0, import_obsidian.setIcon)(refreshBtn, "refresh-cw");
+      refreshBtn.addEventListener("click", () => this.refresh());
+      let skillFiles = this.app.vault.getFiles().filter((f) => f.extension === "skill");
+      if (skillFiles.length === 0) {
+        try {
+          const listed = await this.plugin.app.vault.adapter.list("/");
+          const skillPaths = listed.files.filter((p) => p.endsWith(".skill"));
+          skillFiles = skillPaths.map((p) => this.plugin.app.vault.getAbstractFileByPath(p)).filter((f) => f instanceof import_obsidian.TFile);
+        } catch (e) {
         }
-      } catch (e) {
       }
-      const iconEl = item.createDiv({ cls: "skill-explorer-item-icon" });
-      (0, import_obsidian.setIcon)(iconEl, SKILL_ICON);
-      const textEl = item.createDiv({ cls: "skill-explorer-item-text" });
-      textEl.createEl("div", { cls: "skill-explorer-item-name", text: name });
-      if (desc) {
-        textEl.createEl("div", {
-          cls: "skill-explorer-item-desc",
-          text: desc.slice(0, 80) + (desc.length > 80 ? "\u2026" : "")
+      skillFiles = skillFiles.sort((a, b) => a.basename.localeCompare(b.basename));
+      if (skillFiles.length === 0) {
+        contentEl.createEl("p", {
+          text: "No .skill files found in this vault.",
+          cls: "skill-explorer-empty"
+        });
+        return;
+      }
+      const list = contentEl.createDiv({ cls: "skill-explorer-list" });
+      for (const file of skillFiles) {
+        const item = list.createDiv({ cls: "skill-explorer-item" });
+        let name = file.basename;
+        let desc = "";
+        try {
+          const buf = await this.app.vault.readBinary(file);
+          const zip = await import_jszip.default.loadAsync(buf);
+          const mdFile = zip.file("SKILL.md");
+          if (mdFile) {
+            const md = await mdFile.async("string");
+            const fm = parseFrontmatter(md);
+            name = (_b = (_a = fm["name"]) != null ? _a : fm["title"]) != null ? _b : file.basename;
+            desc = (_d = (_c = fm["description"]) != null ? _c : stripFrontmatter(md).split("\n").find((l) => l.trim())) != null ? _d : "";
+          }
+        } catch (e) {
+        }
+        const iconEl = item.createDiv({ cls: "skill-explorer-item-icon" });
+        (0, import_obsidian.setIcon)(iconEl, SKILL_ICON);
+        const textEl = item.createDiv({ cls: "skill-explorer-item-text" });
+        textEl.createEl("div", { cls: "skill-explorer-item-name", text: name });
+        if (desc) {
+          textEl.createEl("div", {
+            cls: "skill-explorer-item-desc",
+            text: desc.slice(0, 80) + (desc.length > 80 ? "\u2026" : "")
+          });
+        }
+        item.addEventListener("click", () => {
+          this.plugin.openSkillFile(file);
+        });
+        item.addEventListener("contextmenu", (evt) => {
+          const menu = new import_obsidian.Menu();
+          menu.addItem(
+            (i) => i.setTitle("Open in new tab").setIcon("file-plus").onClick(() => this.plugin.openSkillFile(file, true))
+          );
+          menu.addItem(
+            (i) => i.setTitle("Reveal in file explorer").setIcon("folder-open").onClick(() => {
+              var _a2, _b2, _c2;
+              (_c2 = (_b2 = (_a2 = this.app.internalPlugins) == null ? void 0 : _a2.getPluginById("file-explorer")) == null ? void 0 : _b2.instance) == null ? void 0 : _c2.revealInFolder(file);
+            })
+          );
+          menu.showAtMouseEvent(evt);
         });
       }
-      item.addEventListener("click", () => {
-        this.plugin.openSkillFile(file);
-      });
-      item.addEventListener("contextmenu", (evt) => {
-        const menu = new import_obsidian.Menu();
-        menu.addItem(
-          (i) => i.setTitle("Open in new tab").setIcon("file-plus").onClick(() => this.plugin.openSkillFile(file, true))
-        );
-        menu.addItem(
-          (i) => i.setTitle("Reveal in file explorer").setIcon("folder-open").onClick(() => {
-            var _a2, _b2, _c2;
-            (_c2 = (_b2 = (_a2 = this.app.internalPlugins) == null ? void 0 : _a2.getPluginById("file-explorer")) == null ? void 0 : _b2.instance) == null ? void 0 : _c2.revealInFolder(file);
-          })
-        );
-        menu.showAtMouseEvent(evt);
+    } catch (e) {
+      contentEl.createEl("p", {
+        text: `Skill Explorer error: ${e}`,
+        cls: "skill-error"
       });
     }
   }

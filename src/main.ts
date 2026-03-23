@@ -288,92 +288,111 @@ export class SkillExplorerView extends ItemView {
     contentEl.empty();
     contentEl.addClass("skill-explorer-container");
 
-    const header = contentEl.createDiv({ cls: "skill-explorer-header" });
-    header.createEl("h4", { text: "Skill Explorer" });
+    try {
+      const header = contentEl.createDiv({ cls: "skill-explorer-header" });
+      header.createEl("h4", { text: "Skill Explorer" });
 
-    const refreshBtn = header.createEl("button", {
-      cls: "skill-explorer-refresh",
-      title: "Reload skills",
-    });
-    setIcon(refreshBtn, "refresh-cw");
-    refreshBtn.addEventListener("click", () => this.refresh());
-
-    // Collect all .skill files
-    const skillFiles = this.app.vault
-      .getFiles()
-      .filter((f) => f.extension === "skill")
-      .sort((a, b) => a.basename.localeCompare(b.basename));
-
-    if (skillFiles.length === 0) {
-      contentEl.createEl("p", {
-        text: "No .skill files found in this vault.",
-        cls: "skill-explorer-empty",
+      const refreshBtn = header.createEl("button", {
+        cls: "skill-explorer-refresh",
+        title: "Reload skills",
       });
-      return;
-    }
+      setIcon(refreshBtn, "refresh-cw");
+      refreshBtn.addEventListener("click", () => this.refresh());
 
-    const list = contentEl.createDiv({ cls: "skill-explorer-list" });
-
-    for (const file of skillFiles) {
-      const item = list.createDiv({ cls: "skill-explorer-item" });
-
-      // Try to read metadata without fully parsing the zip (best-effort)
-      let name = file.basename;
-      let desc = "";
-      try {
-        const buf = await this.app.vault.readBinary(file);
-        const zip = await JSZip.loadAsync(buf);
-        const mdFile = zip.file("SKILL.md");
-        if (mdFile) {
-          const md = await mdFile.async("string");
-          const fm = parseFrontmatter(md);
-          name = fm["name"] ?? fm["title"] ?? file.basename;
-          desc =
-            fm["description"] ??
-            stripFrontmatter(md).split("\n").find((l) => l.trim()) ??
-            "";
+      // Collect all .skill files — vault.getFiles() skips non-indexed extensions,
+      // so fall back to vault.adapter.list() when it returns nothing.
+      let skillFiles = this.app.vault
+        .getFiles()
+        .filter((f) => f.extension === "skill");
+      if (skillFiles.length === 0) {
+        try {
+          const listed = await this.plugin.app.vault.adapter.list("/");
+          const skillPaths = listed.files.filter((p) => p.endsWith(".skill"));
+          skillFiles = skillPaths
+            .map((p) => this.plugin.app.vault.getAbstractFileByPath(p))
+            .filter((f): f is TFile => f instanceof TFile);
+        } catch (e) {
+          // fallback failed, skillFiles stays empty
         }
-      } catch {
-        // silently fall back to filename
+      }
+      skillFiles = skillFiles.sort((a, b) => a.basename.localeCompare(b.basename));
+
+      if (skillFiles.length === 0) {
+        contentEl.createEl("p", {
+          text: "No .skill files found in this vault.",
+          cls: "skill-explorer-empty",
+        });
+        return;
       }
 
-      const iconEl = item.createDiv({ cls: "skill-explorer-item-icon" });
-      setIcon(iconEl, SKILL_ICON);
+      const list = contentEl.createDiv({ cls: "skill-explorer-list" });
 
-      const textEl = item.createDiv({ cls: "skill-explorer-item-text" });
-      textEl.createEl("div", { cls: "skill-explorer-item-name", text: name });
-      if (desc) {
-        textEl.createEl("div", {
-          cls: "skill-explorer-item-desc",
-          text: desc.slice(0, 80) + (desc.length > 80 ? "…" : ""),
+      for (const file of skillFiles) {
+        const item = list.createDiv({ cls: "skill-explorer-item" });
+
+        // Try to read metadata without fully parsing the zip (best-effort)
+        let name = file.basename;
+        let desc = "";
+        try {
+          const buf = await this.app.vault.readBinary(file);
+          const zip = await JSZip.loadAsync(buf);
+          const mdFile = zip.file("SKILL.md");
+          if (mdFile) {
+            const md = await mdFile.async("string");
+            const fm = parseFrontmatter(md);
+            name = fm["name"] ?? fm["title"] ?? file.basename;
+            desc =
+              fm["description"] ??
+              stripFrontmatter(md).split("\n").find((l) => l.trim()) ??
+              "";
+          }
+        } catch {
+          // silently fall back to filename
+        }
+
+        const iconEl = item.createDiv({ cls: "skill-explorer-item-icon" });
+        setIcon(iconEl, SKILL_ICON);
+
+        const textEl = item.createDiv({ cls: "skill-explorer-item-text" });
+        textEl.createEl("div", { cls: "skill-explorer-item-name", text: name });
+        if (desc) {
+          textEl.createEl("div", {
+            cls: "skill-explorer-item-desc",
+            text: desc.slice(0, 80) + (desc.length > 80 ? "…" : ""),
+          });
+        }
+
+        item.addEventListener("click", () => {
+          this.plugin.openSkillFile(file);
+        });
+
+        // Right-click context menu
+        item.addEventListener("contextmenu", (evt) => {
+          const menu = new Menu();
+          menu.addItem((i) =>
+            i
+              .setTitle("Open in new tab")
+              .setIcon("file-plus")
+              .onClick(() => this.plugin.openSkillFile(file, true))
+          );
+          menu.addItem((i) =>
+            i
+              .setTitle("Reveal in file explorer")
+              .setIcon("folder-open")
+              .onClick(() => {
+                // @ts-ignore – internal API
+                this.app.internalPlugins
+                  ?.getPluginById("file-explorer")
+                  ?.instance?.revealInFolder(file);
+              })
+          );
+          menu.showAtMouseEvent(evt);
         });
       }
-
-      item.addEventListener("click", () => {
-        this.plugin.openSkillFile(file);
-      });
-
-      // Right-click context menu
-      item.addEventListener("contextmenu", (evt) => {
-        const menu = new Menu();
-        menu.addItem((i) =>
-          i
-            .setTitle("Open in new tab")
-            .setIcon("file-plus")
-            .onClick(() => this.plugin.openSkillFile(file, true))
-        );
-        menu.addItem((i) =>
-          i
-            .setTitle("Reveal in file explorer")
-            .setIcon("folder-open")
-            .onClick(() => {
-              // @ts-ignore – internal API
-              this.app.internalPlugins
-                ?.getPluginById("file-explorer")
-                ?.instance?.revealInFolder(file);
-            })
-        );
-        menu.showAtMouseEvent(evt);
+    } catch (e) {
+      contentEl.createEl("p", {
+        text: `Skill Explorer error: ${e}`,
+        cls: "skill-error",
       });
     }
   }
