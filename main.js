@@ -2793,7 +2793,7 @@ function buildTree(paths) {
   }
   return root;
 }
-function renderTree(node, container) {
+function renderTree(node, container, onFileClick) {
   const sorted = [...node.children].sort((a, b) => {
     if (a.isDir !== b.isDir)
       return a.isDir ? -1 : 1;
@@ -2808,10 +2808,40 @@ function renderTree(node, container) {
     const iconEl = row.createEl("span", { cls: "skill-tree-icon" });
     (0, import_obsidian.setIcon)(iconEl, child.isDir ? "folder" : "file");
     row.createEl("span", { cls: "skill-tree-name", text: child.name });
+    if (!child.isDir && onFileClick) {
+      row.addClass("skill-tree-clickable");
+      row.addEventListener("click", () => onFileClick(child.path));
+    }
     if (child.children.length > 0)
-      renderTree(child, li);
+      renderTree(child, li, onFileClick);
   }
 }
+var SkillFileModal = class extends import_obsidian.Modal {
+  constructor(app, filename, content, sourcePath) {
+    super(app);
+    this.filename = filename;
+    this.content = content;
+    this.sourcePath = sourcePath;
+  }
+  async onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("skill-file-modal");
+    contentEl.createEl("h2", { text: this.filename });
+    const body = contentEl.createDiv({ cls: "skill-file-modal-body" });
+    const comp = new import_obsidian.Component();
+    comp.load();
+    await import_obsidian.MarkdownRenderer.render(
+      this.app,
+      this.content,
+      body,
+      this.sourcePath,
+      comp
+    );
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
 async function extractSkillMd(zip) {
   const entry = Object.keys(zip.files).find(
     (p) => p === "SKILL.md" || p.endsWith("/SKILL.md")
@@ -2901,18 +2931,30 @@ var SkillView = class extends import_obsidian.ItemView {
     pathBadge.createEl("strong", { text: "location: " });
     pathBadge.createSpan({ text: this.currentPath });
     const details = contentEl.createEl("details", { cls: "skill-files-section" });
+    details.open = true;
     details.createEl("summary", {
       text: `Files in this skill (${allFiles.filter((f) => !zip.files[f].dir).length})`
     });
-    renderTree(buildTree(allFiles), details);
+    renderTree(buildTree(allFiles), details, async (zipPath) => {
+      var _a2;
+      const entry = zip.file(zipPath);
+      if (!entry)
+        return;
+      const text = await entry.async("string");
+      new SkillFileModal(
+        this.app,
+        (_a2 = zipPath.split("/").pop()) != null ? _a2 : zipPath,
+        text,
+        this.currentPath
+      ).open();
+    });
     if (bodyMd.trim()) {
       const mdSection = contentEl.createDiv({ cls: "skill-md-content" });
       mdSection.createEl("h3", {
         cls: "skill-section-title",
         text: "Skill Instructions"
       });
-      const { MarkdownRenderer } = await import("obsidian");
-      await MarkdownRenderer.render(
+      await import_obsidian.MarkdownRenderer.render(
         this.app,
         bodyMd,
         mdSection,

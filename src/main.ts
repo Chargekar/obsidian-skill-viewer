@@ -1,7 +1,10 @@
 import {
   App,
+  Component,
   ItemView,
+  MarkdownRenderer,
   Menu,
+  Modal,
   Plugin,
   PluginSettingTab,
   Setting,
@@ -93,8 +96,13 @@ function buildTree(paths: string[]): TreeNode {
   return root;
 }
 
-/** Render a tree node into an HTMLElement recursively. */
-function renderTree(node: TreeNode, container: HTMLElement) {
+/** Render a tree node into an HTMLElement recursively.
+ *  onFileClick: called with the zip-internal path when a file row is clicked. */
+function renderTree(
+  node: TreeNode,
+  container: HTMLElement,
+  onFileClick?: (path: string) => void
+) {
   const sorted = [...node.children].sort((a, b) => {
     if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
     return a.name.localeCompare(b.name);
@@ -108,7 +116,47 @@ function renderTree(node: TreeNode, container: HTMLElement) {
     const iconEl = row.createEl("span", { cls: "skill-tree-icon" });
     setIcon(iconEl, child.isDir ? "folder" : "file");
     row.createEl("span", { cls: "skill-tree-name", text: child.name });
-    if (child.children.length > 0) renderTree(child, li);
+    if (!child.isDir && onFileClick) {
+      row.addClass("skill-tree-clickable");
+      row.addEventListener("click", () => onFileClick(child.path));
+    }
+    if (child.children.length > 0) renderTree(child, li, onFileClick);
+  }
+}
+
+// ─── SkillFileModal ────────────────────────────────────────────────────────────
+
+/** Modal that shows the rendered content of a single file inside a .skill zip. */
+class SkillFileModal extends Modal {
+  private filename: string;
+  private content: string;
+  private sourcePath: string;
+
+  constructor(app: App, filename: string, content: string, sourcePath: string) {
+    super(app);
+    this.filename = filename;
+    this.content = content;
+    this.sourcePath = sourcePath;
+  }
+
+  async onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("skill-file-modal");
+    contentEl.createEl("h2", { text: this.filename });
+    const body = contentEl.createDiv({ cls: "skill-file-modal-body" });
+    const comp = new Component();
+    comp.load();
+    await MarkdownRenderer.render(
+      this.app,
+      this.content,
+      body,
+      this.sourcePath,
+      comp
+    );
+  }
+
+  onClose() {
+    this.contentEl.empty();
   }
 }
 
@@ -225,10 +273,21 @@ export class SkillView extends ItemView {
 
     // ── Files in this skill (collapsible) ─────────────────────────────────────
     const details = contentEl.createEl("details", { cls: "skill-files-section" });
+    details.open = true;
     details.createEl("summary", {
       text: `Files in this skill (${allFiles.filter((f) => !zip.files[f].dir).length})`,
     });
-    renderTree(buildTree(allFiles), details);
+    renderTree(buildTree(allFiles), details, async (zipPath) => {
+      const entry = zip.file(zipPath);
+      if (!entry) return;
+      const text = await entry.async("string");
+      new SkillFileModal(
+        this.app,
+        zipPath.split("/").pop() ?? zipPath,
+        text,
+        this.currentPath
+      ).open();
+    });
 
     // ── SKILL.md content ──────────────────────────────────────────────────────
     if (bodyMd.trim()) {
@@ -237,7 +296,6 @@ export class SkillView extends ItemView {
         cls: "skill-section-title",
         text: "Skill Instructions",
       });
-      const { MarkdownRenderer } = await import("obsidian");
       await MarkdownRenderer.render(
         this.app,
         bodyMd,
