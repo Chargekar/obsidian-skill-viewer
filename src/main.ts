@@ -136,6 +136,11 @@ export class SkillView extends FileView {
     return SKILL_ICON;
   }
 
+  /** Must return true so Obsidian calls onLoadFile for .skill files. */
+  canAcceptExtension(extension: string): boolean {
+    return extension === "skill";
+  }
+
   /** Called by Obsidian when a file is loaded into this view. */
   async onLoadFile(file: TFile): Promise<void> {
     await this.renderSkill(file);
@@ -153,9 +158,10 @@ export class SkillView extends FileView {
     contentEl.addClass("skill-view-container");
 
     // ── Read & unzip ──────────────────────────────────────────────────────────
+    // Use adapter.readBinary so unindexed files (not in vault cache) still load.
     let zip: JSZip;
     try {
-      const arrayBuf = await this.app.vault.readBinary(file);
+      const arrayBuf = await this.app.vault.adapter.readBinary(file.path);
       zip = await JSZip.loadAsync(arrayBuf);
     } catch (e) {
       contentEl.createEl("p", {
@@ -248,10 +254,19 @@ export class SkillView extends FileView {
   }
 
   async setState(state: Record<string, unknown>, result: ViewStateResult): Promise<void> {
-    if (state.file && typeof state.file === "string") {
-      const file = this.app.vault.getAbstractFileByPath(state.file);
-      if (file instanceof TFile) {
-        await this.leaf.openFile(file, { eState: result });
+    await super.setState(state, result);
+    // If the base class couldn't resolve the file (not in vault index), render directly.
+    if (!this.file && state.file && typeof state.file === "string") {
+      const path = state.file as string;
+      // Synthesise a minimal TFile-like object so renderSkill can proceed.
+      const adapter = this.app.vault.adapter;
+      try {
+        const buf = await adapter.readBinary(path);
+        const fakeName = path.split("/").pop() ?? path;
+        const fakeFile = { path, name: fakeName, basename: fakeName.replace(/\.skill$/, ""), extension: "skill" } as unknown as TFile;
+        await this.renderSkill(fakeFile);
+      } catch {
+        // silently ignore — view stays blank rather than crashing
       }
     }
   }

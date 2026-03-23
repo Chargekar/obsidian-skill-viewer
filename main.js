@@ -2827,6 +2827,10 @@ var SkillView = class extends import_obsidian.FileView {
   getIcon() {
     return SKILL_ICON;
   }
+  /** Must return true so Obsidian calls onLoadFile for .skill files. */
+  canAcceptExtension(extension) {
+    return extension === "skill";
+  }
   /** Called by Obsidian when a file is loaded into this view. */
   async onLoadFile(file) {
     await this.renderSkill(file);
@@ -2843,7 +2847,7 @@ var SkillView = class extends import_obsidian.FileView {
     contentEl.addClass("skill-view-container");
     let zip;
     try {
-      const arrayBuf = await this.app.vault.readBinary(file);
+      const arrayBuf = await this.app.vault.adapter.readBinary(file.path);
       zip = await import_jszip.default.loadAsync(arrayBuf);
     } catch (e) {
       contentEl.createEl("p", {
@@ -2916,10 +2920,17 @@ var SkillView = class extends import_obsidian.FileView {
     return { file: (_a = this.file) == null ? void 0 : _a.path };
   }
   async setState(state, result) {
-    if (state.file && typeof state.file === "string") {
-      const file = this.app.vault.getAbstractFileByPath(state.file);
-      if (file instanceof import_obsidian.TFile) {
-        await this.leaf.openFile(file, { eState: result });
+    var _a;
+    await super.setState(state, result);
+    if (!this.file && state.file && typeof state.file === "string") {
+      const path = state.file;
+      const adapter = this.app.vault.adapter;
+      try {
+        const buf = await adapter.readBinary(path);
+        const fakeName = (_a = path.split("/").pop()) != null ? _a : path;
+        const fakeFile = { path, name: fakeName, basename: fakeName.replace(/\.skill$/, ""), extension: "skill" };
+        await this.renderSkill(fakeFile);
+      } catch (e) {
       }
     }
   }
