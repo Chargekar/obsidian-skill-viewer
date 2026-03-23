@@ -2,6 +2,11 @@
   "name": "obsidian-skill-viewer",
   "version": "1.0.0",
   "description": "Renders .skill files as rich notes in Obsidian",
+  "author": {
+    "name": "Chargekar",
+    "email": "hoominati@icloud.com",
+    "url": "https://github.com/Chargekar"
+  },
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

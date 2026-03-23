@@ -201,6 +201,8 @@ Thank you to the Obsidian team for building infrastructure that keeps getting mo
 
 Issues and pull requests are welcome. Please open an issue before submitting a PR for non-trivial changes.
 
+For direct contact: hoominati@icloud.com
+
 ---
 
 ## License
