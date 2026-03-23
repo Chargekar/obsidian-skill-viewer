@@ -172,7 +172,11 @@ export class SkillView extends FileView {
     }
 
     // ── Extract SKILL.md ──────────────────────────────────────────────────────
-    const skillMdFile = zip.file("SKILL.md");
+    // SKILL.md may be nested inside a folder within the zip, not at the root.
+    const skillMdPath = Object.keys(zip.files).find(
+      (p) => p === "SKILL.md" || p.endsWith("/SKILL.md")
+    );
+    const skillMdFile = skillMdPath ? zip.file(skillMdPath) : null;
     let rawMd = "";
     if (skillMdFile) {
       rawMd = await skillMdFile.async("string");

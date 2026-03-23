@@ -2856,7 +2856,10 @@ var SkillView = class extends import_obsidian.FileView {
       });
       return;
     }
-    const skillMdFile = zip.file("SKILL.md");
+    const skillMdPath = Object.keys(zip.files).find(
+      (p) => p === "SKILL.md" || p.endsWith("/SKILL.md")
+    );
+    const skillMdFile = skillMdPath ? zip.file(skillMdPath) : null;
     let rawMd = "";
     if (skillMdFile) {
       rawMd = await skillMdFile.async("string");
