@@ -3101,7 +3101,7 @@ var SkillViewerPlugin = class extends import_obsidian.Plugin {
     this.settings = DEFAULT_SETTINGS;
   }
   async onload() {
-    console.debug("Skill Viewer plugin loading\u2026");
+    console.debug("Skill viewer plugin loading\u2026");
     await this.loadSettings();
     (0, import_obsidian.addIcon)("skill-file", SKILL_FILE_ICON);
     this.registerExtensions(["skill"], SKILL_VIEW_TYPE);
@@ -3133,10 +3133,10 @@ var SkillViewerPlugin = class extends import_obsidian.Plugin {
       }
     });
     this.addSettingTab(new SkillViewerSettingTab(this.app, this));
-    console.debug("Skill Viewer plugin loaded.");
+    console.debug("Skill viewer plugin loaded.");
   }
   onunload() {
-    console.debug("Skill Viewer plugin unloaded.");
+    console.debug("Skill viewer plugin unloaded.");
   }
   /** Open or reveal the Skill Explorer sidebar. */
   async activateSkillExplorer() {
@@ -3144,13 +3144,13 @@ var SkillViewerPlugin = class extends import_obsidian.Plugin {
       SKILL_EXPLORER_VIEW_TYPE
     );
     if (existing.length > 0) {
-      this.app.workspace.revealLeaf(existing[0]);
+      await this.app.workspace.revealLeaf(existing[0]);
       return;
     }
     const leaf = this.app.workspace.getLeftLeaf(false);
     if (leaf) {
       await leaf.setViewState({ type: SKILL_EXPLORER_VIEW_TYPE, active: true });
-      this.app.workspace.revealLeaf(leaf);
+      await this.app.workspace.revealLeaf(leaf);
     }
   }
   /** Open a .skill file by path in the main workspace. */
@@ -3168,7 +3168,7 @@ var SkillViewerPlugin = class extends import_obsidian.Plugin {
         state: { file: filePath },
         active: true
       });
-      this.app.workspace.revealLeaf(leaf);
+      await this.app.workspace.revealLeaf(leaf);
     }
   }
   /** Convenience wrapper for callers that have a TFile. */

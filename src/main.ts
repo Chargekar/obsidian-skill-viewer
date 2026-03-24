@@ -500,7 +500,7 @@ export default class SkillViewerPlugin extends Plugin {
   settings: SkillViewerSettings = DEFAULT_SETTINGS;
 
   async onload() {
-    console.debug("Skill Viewer plugin loading…");
+    console.debug("Skill viewer plugin loading…");
 
     await this.loadSettings();
 
@@ -547,11 +547,11 @@ export default class SkillViewerPlugin extends Plugin {
     // Settings tab
     this.addSettingTab(new SkillViewerSettingTab(this.app, this));
 
-    console.debug("Skill Viewer plugin loaded.");
+    console.debug("Skill viewer plugin loaded.");
   }
 
   onunload() {
-    console.debug("Skill Viewer plugin unloaded.");
+    console.debug("Skill viewer plugin unloaded.");
   }
 
   /** Open or reveal the Skill Explorer sidebar. */
@@ -560,13 +560,13 @@ export default class SkillViewerPlugin extends Plugin {
       SKILL_EXPLORER_VIEW_TYPE
     );
     if (existing.length > 0) {
-      this.app.workspace.revealLeaf(existing[0]);
+      await this.app.workspace.revealLeaf(existing[0]);
       return;
     }
     const leaf = this.app.workspace.getLeftLeaf(false);
     if (leaf) {
       await leaf.setViewState({ type: SKILL_EXPLORER_VIEW_TYPE, active: true });
-      this.app.workspace.revealLeaf(leaf);
+      await this.app.workspace.revealLeaf(leaf);
     }
   }
 
@@ -585,7 +585,7 @@ export default class SkillViewerPlugin extends Plugin {
         state: { file: filePath },
         active: true,
       });
-      this.app.workspace.revealLeaf(leaf);
+      await this.app.workspace.revealLeaf(leaf);
     }
   }
 
