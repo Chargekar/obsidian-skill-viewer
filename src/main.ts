@@ -268,7 +268,7 @@ export class SkillView extends ItemView {
     const pathBadge = badges.createEl("span", {
       cls: "skill-badge skill-badge-path",
     });
-    pathBadge.createEl("strong", { text: "location: " });
+    pathBadge.createEl("strong", { text: "Location: " });
     pathBadge.createSpan({ text: this.currentPath });
 
     // ── Files in this skill (collapsible) ─────────────────────────────────────
@@ -307,7 +307,7 @@ export class SkillView extends ItemView {
       );
     } else if (!hasMd) {
       contentEl.createEl("p", {
-        text: "No SKILL.md found inside this skill package.",
+        text: "No skill.md found inside this skill package.",
         cls: "skill-no-content",
       });
     }
