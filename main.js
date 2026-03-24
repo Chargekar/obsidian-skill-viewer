@@ -3072,7 +3072,7 @@ var SkillExplorerView = class extends import_obsidian.ItemView {
       }
     } catch (e) {
       contentEl.createEl("p", {
-        text: `Skill Explorer error: ${e}`,
+        text: `Skill explorer error: ${e}`,
         cls: "skill-error"
       });
     }
@@ -3086,7 +3086,7 @@ var SkillViewerSettingTab = class extends import_obsidian.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian.Setting(containerEl).setName("Skill viewer settings").setHeading();
+    new import_obsidian.Setting(containerEl).setName("Configuration").setHeading();
     new import_obsidian.Setting(containerEl).setName("Default open mode").setDesc("How to open a skill file when clicked.").addDropdown(
       (drop) => drop.addOption("tab", "New tab").addOption("split", "Split pane").setValue(this.plugin.settings.defaultOpenMode).onChange(async (value) => {
         this.plugin.settings.defaultOpenMode = value;
