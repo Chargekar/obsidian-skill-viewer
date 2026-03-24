@@ -453,7 +453,7 @@ export class SkillExplorerView extends ItemView {
       }
     } catch (e) {
       contentEl.createEl("p", {
-        text: `Skill Explorer error: ${e}`,
+        text: `Skill explorer error: ${e}`,
         cls: "skill-error",
       });
     }
@@ -473,7 +473,7 @@ class SkillViewerSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    new Setting(containerEl).setName("Skill viewer settings").setHeading();
+    new Setting(containerEl).setName("Configuration").setHeading();
 
     new Setting(containerEl)
       .setName("Default open mode")
